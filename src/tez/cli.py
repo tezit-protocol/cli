@@ -314,6 +314,77 @@ def build(
     typer.secho(f"  Bundle: {bundle_dir}/", bold=True)
 
 
+def _download_file(url: str, dest: Path) -> int:
+    """HTTP GET a file from a pre-signed S3 URL and save to disk."""
+    req = Request(_require_https(url))
+    resp = urlopen(req)
+    dest.write_bytes(resp.read())
+    status: int = resp.status
+    return status
+
+
+@app.command()
+def download(
+    tez_id: Annotated[str, typer.Argument(help="ID of the Tez to download")],
+    server: Annotated[str, typer.Option("--server", "-s", help="Tez server URL")],
+    token: Annotated[
+        str,
+        typer.Option("--token", "-t", help="Download token from MCP tez_download"),
+    ],
+) -> None:
+    """Download a Tez bundle to local cache.
+
+    Phase 2 of the download flow. Claude calls MCP tez_download first
+    to get a download_token and server URL. Then runs this command:
+
+      tez download <tez_id> --server <server> --token <token>
+
+    The CLI exchanges the token for pre-signed GET URLs via
+    GET <server>/api/tokens/<token>, then downloads all files into
+    /tmp/tez/{tez_id}/, producing a protocol-compliant local bundle.
+    """
+    token_data = _exchange_token(server, token)
+    download_urls: dict[str, str] = token_data["download_urls"]
+
+    dest = TEZ_DIR / tez_id
+    context_dir = dest / "context"
+    context_dir.mkdir(parents=True, exist_ok=True)
+
+    typer.echo(f"  Downloading Tez {tez_id} -> {dest}/")
+
+    file_count = 0
+
+    manifest_names = set(BUNDLE_FILES)
+    for name, url in download_urls.items():
+        if name in manifest_names:
+            continue
+        typer.echo(f"    - {name} ...", nl=False)
+        try:
+            dest_file = context_dir / name
+            dest_file.parent.mkdir(parents=True, exist_ok=True)
+            _download_file(url=url, dest=dest_file)
+            typer.echo(" done")
+            file_count += 1
+        except OSError as exc:
+            typer.echo()
+            typer.secho(f"  Download failed for {name}: {exc}", fg="red")
+            raise typer.Exit(1) from exc
+
+    for manifest_name in BUNDLE_FILES:
+        manifest_url = download_urls.get(manifest_name)
+        if not manifest_url:
+            continue
+        try:
+            _download_file(url=manifest_url, dest=dest / manifest_name)
+            file_count += 1
+        except OSError as exc:
+            typer.secho(f"  Download failed for {manifest_name}: {exc}", fg="red")
+            raise typer.Exit(1) from exc
+
+    typer.echo()
+    typer.secho(f"  Done. {file_count} files -> {dest}/", bold=True)
+
+
 def _human_size(size: int) -> str:
     for unit in ("B", "KB", "MB", "GB"):
         if size < 1024:
