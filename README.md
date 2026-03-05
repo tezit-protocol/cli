@@ -13,6 +13,8 @@ The CLI handles all local operations for Tez lifecycle management:
 
 The CLI holds zero cloud credentials. All storage URLs are obtained by exchanging short-lived tokens with the [Tez MCP Server](https://github.com/tezit-protocol/mcp-server).
 
+See [flows.md](flows.md) for detailed sequence diagrams of every operation.
+
 ## Architecture
 
 ```
