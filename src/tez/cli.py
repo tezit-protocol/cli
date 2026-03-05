@@ -72,6 +72,11 @@ def _read_auth_config() -> dict[str, str]:
     return config
 
 
+def _read_auth_email() -> str:
+    """Read authenticated email from config, or exit."""
+    return _read_auth_config()["email"]
+
+
 def _detect_content_type(file_path: Path) -> str:
     """Guess MIME type from file extension, defaulting to application/octet-stream."""
     mime_type, _ = mimetypes.guess_type(str(file_path))
