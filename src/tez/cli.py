@@ -385,6 +385,49 @@ def download(
     typer.secho(f"  Done. {file_count} files -> {dest}/", bold=True)
 
 
+@auth_app.command(name="login")
+def auth_login(
+    email: Annotated[str, typer.Option("--email", "-e", help="Your email address")],
+    name: Annotated[str, typer.Option("--name", "-n", help="Your display name")],
+) -> None:
+    """Authenticate with the Tez service."""
+    typer.echo(f"  Authenticating as {name} ({email})...")
+
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    config_file = CONFIG_FILE
+    config = {"email": email, "name": name}
+    config_file.write_text(json.dumps(config, indent=2))
+
+    typer.secho(f"  Logged in as {name} ({email})", bold=True)
+    typer.echo(f"  Config saved to {config_file}")
+
+
+@auth_app.command(name="whoami")
+def auth_whoami() -> None:
+    """Show the currently authenticated user."""
+    config_file = CONFIG_FILE
+    if not config_file.exists():
+        typer.secho(
+            "  Not logged in. Run: tez auth login",
+            fg="yellow",
+        )
+        raise typer.Exit(1)
+
+    config = json.loads(config_file.read_text())
+    typer.echo(f"  {config['name']} ({config['email']})")
+
+
+@auth_app.command(name="logout")
+def auth_logout() -> None:
+    """Remove stored credentials."""
+    config_file = CONFIG_FILE
+    if config_file.exists():
+        config_file.unlink()
+        typer.secho("  Logged out.", bold=True)
+    else:
+        typer.echo("  Not logged in.")
+
+
 def _human_size(size: int) -> str:
     for unit in ("B", "KB", "MB", "GB"):
         if size < 1024:
