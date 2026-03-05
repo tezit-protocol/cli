@@ -428,6 +428,19 @@ def auth_logout() -> None:
         typer.echo("  Not logged in.")
 
 
+@cache_app.command(name="clean")
+def cache_clean(
+    tez_id: Annotated[str, typer.Argument(help="ID of the Tez to remove")],
+) -> None:
+    """Remove locally cached Tez files."""
+    dest = TEZ_DIR / tez_id
+    if dest.exists():
+        shutil.rmtree(dest)
+        typer.echo(f"  Removed {dest}/")
+    else:
+        typer.echo(f"  No cached files for {tez_id}")
+
+
 def _human_size(size: int) -> str:
     for unit in ("B", "KB", "MB", "GB"):
         if size < 1024:
